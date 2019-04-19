@@ -45,7 +45,7 @@ class QRNNLayer(nn.Module):
         self.num_directions = 2 if bidirectional else 1
 
         # One large matmul with concat is faster than N small matmuls and no concat
-         self.linear = nn.Linear(self.window * self.input_size, 3 * self.hidden_size * self.num_directions if self.output_gate else 2 * self.hidden_size * self.num_directions)
+        self.linear = nn.Linear(self.window * self.input_size, 3 * self.hidden_size * self.num_directions if self.output_gate else 2 * self.hidden_size * self.num_directions)
     
     def reset(self):
         # If you are saving the previous value of x, you should call this when starting with a new state
