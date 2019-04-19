@@ -30,7 +30,7 @@ class QRNNLayer(nn.Module):
         - h_n (num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
     """
 
-     def __init__(self, input_size, hidden_size=None, save_prev_x=False, zoneout=0, window=1, output_gate=True, use_cuda=True, bidirectional=False):
+    def __init__(self, input_size, hidden_size=None, save_prev_x=False, zoneout=0, window=1, output_gate=True, use_cuda=True, bidirectional=False):
         super(QRNNLayer, self).__init__()
 
         assert window in [1, 2], "This QRNN implementation currently only handles convolutional window of size 1 or size 2"
