@@ -197,7 +197,8 @@ class GPUForgetMult(torch.autograd.Function):
         grid_hidden_size = min(hidden_size, 512)
         grid = (math.ceil(hidden_size / grid_hidden_size), batch_size)
         forget_mult = self.bwd_forget_mult if self.backwards else self.forget_mult
-        forget_mult(grid=grid, block=(grid_hidden_size, 1), args=[result.data_ptr(), f.data_ptr(), x.data_ptr(), seq_size, batch_size, hidden_size], stream=self.stream)        self.save_for_backward(f, x, hidden_init)
+        forget_mult(grid=grid, block=(grid_hidden_size, 1), args=[result.data_ptr(), f.data_ptr(), x.data_ptr(), seq_size, batch_size, hidden_size], stream=self.stream)
+        self.save_for_backward(f, x, hidden_init)
         self.result = result
         # For a backward forget mult, skip the hidden state at the end
         if self.backwards: return result[:-1, :, :]
