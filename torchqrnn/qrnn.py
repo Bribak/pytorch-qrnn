@@ -78,8 +78,8 @@ class QRNNLayer(nn.Module):
             Y = Y.view(seq_len, batch_size, 2 * self.hidden_size * self.num_directions)
             Z, F = Y.chunk(2, dim=2)
         ###
-        Z = torch.nn.functional.tanh(Z)
-        F = torch.nn.functional.sigmoid(F)
+        Z = torch.tanh(Z)
+        F = torch.sigmoid(F)
 
         # If zoneout is specified, we perform dropout on the forget gates in F
         # If an element of F is zero, that means the corresponding neuron keeps the old value
