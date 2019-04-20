@@ -87,7 +87,7 @@ class QRNNLayer(nn.Module):
             Y = Y.view(seq_len, batch_size, 2 * self.hidden_size * self.num_directions)
             Z, F = Y.chunk(2, dim=2)
         ###
-        if drelu:
+        if self.drelu:
             Za = rectify(Z)
             Zb = neg_rectify(Z)
             Z = Za + Zb
