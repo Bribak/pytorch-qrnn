@@ -2,6 +2,11 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 
+def rectify(x):
+    return nn.ReLU(x)
+def neg_rectify(x):
+    return -1.0 * nn.ReLU(x)
+
 if __name__ == '__main__':
     from forget_mult import ForgetMult
 else:
@@ -20,6 +25,8 @@ class QRNNLayer(nn.Module):
         output_gate: If True, performs QRNN-fo (applying an output gate to the output). If False, performs QRNN-f. Default: True.
         use_cuda: If True, uses fast custom CUDA kernel. If False, uses naive for loop. Default: True.
         bidirectional: If True, becomes a bidirectional layer (num_directions will be 2). Default: False.
+        drelu: If True, uses dual rectified linear units as activation function instead of tanh. Default: False.
+        (https://arxiv.org/abs/1707.08214)
 
     Inputs: X, hidden
         - X (seq_len, batch, input_size): tensor containing the features of the input sequence.
@@ -30,7 +37,8 @@ class QRNNLayer(nn.Module):
         - h_n (num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
     """
 
-    def __init__(self, input_size, hidden_size=None, save_prev_x=False, zoneout=0, window=1, output_gate=True, use_cuda=True, bidirectional=False):
+    def __init__(self, input_size, hidden_size=None, save_prev_x=False, zoneout=0, window=1,
+                 output_gate=True, use_cuda=True, bidirectional=False, drelu=False):
         super(QRNNLayer, self).__init__()
 
         assert window in [1, 2], "This QRNN implementation currently only handles convolutional window of size 1 or size 2"
@@ -43,6 +51,7 @@ class QRNNLayer(nn.Module):
         self.output_gate = output_gate
         self.use_cuda = use_cuda
         self.num_directions = 2 if bidirectional else 1
+        self.drelu = drelu
 
         # One large matmul with concat is faster than N small matmuls and no concat
         self.linear = nn.Linear(self.window * self.input_size, 3 * self.hidden_size * self.num_directions if self.output_gate else 2 * self.hidden_size * self.num_directions)
@@ -78,7 +87,12 @@ class QRNNLayer(nn.Module):
             Y = Y.view(seq_len, batch_size, 2 * self.hidden_size * self.num_directions)
             Z, F = Y.chunk(2, dim=2)
         ###
-        Z = torch.tanh(Z)
+        if drelu:
+            Za = rectify(Z)
+            Zb = neg_rectify(Z)
+            Z = Za + Zb
+        else:
+            Z = torch.tanh(Z)
         F = torch.sigmoid(F)
 
         # If zoneout is specified, we perform dropout on the forget gates in F
@@ -100,7 +114,7 @@ class QRNNLayer(nn.Module):
             F_bwd = F_bwd.contiguous()
             C_bwd = ForgetMult(backwards=True)(F_bwd, Z_bwd, hidden[1] if hidden is not None else None, use_cuda=self.use_cuda)
             if self.output_gate:
-                H_bwd = torch.nn.functional.sigmoid(O_bwd) * C_bwd
+                H_bwd = torch.sigmoid(O_bwd) * C_bwd
             else:
                 H_bwd = C_bwd
 
@@ -116,7 +130,7 @@ class QRNNLayer(nn.Module):
 
         # Apply (potentially optional) output gate
         if self.output_gate:
-            H = torch.nn.functional.sigmoid(O) * C
+            H = torch.sigmoid(O) * C
         else:
             H = C
 
@@ -147,7 +161,9 @@ class QRNN(torch.nn.Module):
         output_gate: If True, performs QRNN-fo (applying an output gate to the output). If False, performs QRNN-f. Default: True.
         use_cuda: If True, uses fast custom CUDA kernel. If False, uses naive for loop. Default: True.
         bidirectional: If True, becomes a bidirectional QRNN (num_directions=2). Default: False.
-
+        drelu: If True, uses dual rectified linear units as activation function instead of tanh. Default: False.
+        (https://arxiv.org/abs/1707.08214)
+        
     Inputs: X, hidden
         - X (seq_len, batch, input_size): tensor containing the features of the input sequence.
         - hidden (layers * num_directions, batch, hidden_size): tensor containing the initial hidden state for the QRNN.
@@ -159,7 +175,7 @@ class QRNN(torch.nn.Module):
 
     def __init__(self, input_size, hidden_size,
                  num_layers=1, bias=True, batch_first=False,
-                 dropout=0, bidirectional=False, layers=None, **kwargs):
+                 dropout=0, bidirectional=False, drelu=False, layers=None, **kwargs):
         assert batch_first == False, 'Batch first mode is not yet supported'
         assert bias == True, 'Removing underlying bias is not yet supported'
 
